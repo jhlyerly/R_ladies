@@ -1,0 +1,118 @@
+---
+title: "Sungrains phenotype data example for R ladies"
+author: "Jeanette Lyerly"
+date: "October 17, 2022"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+## Background
+
+In 2022 we are testing using templates for data submission. The purpose of this script is to load the means data for a given nursery, check it, and then compile it into a file.
+
+**Input files:**   
+Each location should have an individual excel workbook with a single tab saved with the file extension xlsx.
+All excel files in the folder will be read and bound. Do not include any additional excel files in the data folder (only files for each location).   
+The headers in each file should be normalized according the the template.   
+The order of columns does not matter, as long as the headers are the same (e.g. no YLD, Yield, yield, etc).   
+Missing data can be left blank or designated as NA.    
+
+## Setup:   
+
+Create a new R project and save it in the "main" folder. In this workflow the folder is called "Phenotype_data" and the project is placed in this folder.   
+Data files will be placed into sub-folders by year and by nursery.   
+Any scripts for compiling data can be added to a folder called "markdown" that is associated with the R project.   
+
+```{r}
+knitr::opts_chunk$set(echo = FALSE)
+library(plyr)
+library(tidyverse)
+library(readxl)
+library(openxlsx)
+library(here)
+```
+
+## Data Import
+
+The data will be stored in two folders within a year and nursery - raw and clean.   
+The raw data is the data file(s) from the breeders.  
+The clean data file is data that has been looked over, had any corrections for headers, line names, etc fixed, and then saved. This is the data we will use.   
+We will have one workbook per location. 
+
+We are going use an R project and the "here" package.
+
+### Means data
+
+Use this section to import means data.
+
+**User inputs:**   
+Fill out the fields below. The noEntries variable indicates the number of entries in the nursery. This will limit the rows that will be imported so any extra rows at the bottom of means template files will not be imported.
+
+```{r}
+
+noEntries <- 66 #put the number of entries in the nursery here
+
+```
+
+Create paths and import data. We are going to use the data in the "clean_means" folder. This data has been checked for formatting errors.   
+
+```{r}
+myfolder <- c("clean_data") #this indicates we are going to pull files from the clean data folder
+
+#create a list of files in the folder
+file_list <- list.files(path = here::here(paste(myfolder, sep = "/")), pattern='*.xlsx')
+#set the path for those files
+mypath <- here::here(paste(myfolder, sep = "/"))
+
+#read in the files as a list of data frames and bind them
+means_data <- map_df(paste0(here::here(mypath, file_list)), ~read_excel(.x, col_names = TRUE, n_max = noEntries, na = c("", "NA")))
+
+```
+
+## Data check
+
+Check to be sure this imported correctly. 
+
+```{r}
+glimpse(means_data)
+
+#looks like we have some extra random columns at the end - these are all NA so we remove them - issue with excel
+means_data <- means_data %>% select_if(~ !all(is.na(.)))
+
+#move the descriptors to the beginning
+means_data <- means_data %>% dplyr::select(EXPT, YR, TRIAL, LOC, ENTRY, ID, everything())
+
+#convert to long format 
+means_data_long <- means_data %>%
+      pivot_longer(., cols = -c(EXPT:ID), names_to = "Trait", values_to = "Measurement") %>%
+  filter(!is.na(Measurement))
+
+#quick check for odd values
+ggplot(data = means_data_long %>% filter(Trait == "FHB09")) +
+      geom_histogram(aes(Measurement)) +
+      facet_wrap(vars(LOC))
+  
+```
+
+## Save files
+
+Use this section to save the bound data into a new file. The saved file will be written to the clean_means folder as a csv file.
+
+**User inputs** type the name of your file in the () below.
+
+```{r}
+myfilename <- c("my_means") #put the name of your file here
+
+myfilename1 <- paste(myfilename, "_", Sys.Date(), ".csv", sep = "") #this will automatically add the date to the file name
+
+#write to a file
+write.csv(means_data, file = here::here(paste(myfolder, myfilename1, sep = "/")), row.names = F)
+
+```
+
+
+
+
+
+
