@@ -1,0 +1,164 @@
+---
+title: "Introduction Chs 1-3"
+author: "Jeanette Lyerly"
+date: '2025-06-03'
+output: html_document
+---
+
+This is the beginning of the tidymodels book club with R-Ladies RTP - June 2025. 
+We are covering Tidy Modeling with R Version 1.0.0 (2023-09-06) - https://www.tmwr.org.
+
+I am going to work through the book examples for the chapters as part of this project.
+
+This is Chapter 2 - Tidyverse Primer. 
+
+The data set comes from the city of Chicago’s data portal and contains daily ridership data for the city’s elevated train stations. The data set has columns for:
+
+the station identifier (numeric)
+the station name (character)
+the date (character in mm/dd/yyyy format)
+the day of the week (character)
+the number of riders (numeric)
+
+```{r}
+
+library(tidyverse)
+library(lubridate)
+
+url <- "https://data.cityofchicago.org/api/views/5neh-572f/rows.csv?accessType=DOWNLOAD&bom=true&format=true"
+
+all_stations <- 
+  # Step 1: Read in the data.
+  read_csv(url) %>% 
+  # Step 2: filter columns and rename stationname
+  dplyr::select(station = stationname, date, rides) %>% 
+  # Step 3: Convert the character date field to a date encoding.
+  # Also, put the data in units of 1K rides
+  mutate(date = mdy(date), rides = rides / 1000) %>% 
+  # Step 4: Summarize the multiple records using the maximum.
+  group_by(date, station) %>% 
+  summarize(rides = max(rides), .groups = "drop")
+
+
+
+```
+
+This is Chapter 3 - A Review of R Modeling Fundamentals
+
+To demonstrate some fundamentals for modeling in base R, let’s use experimental data from McDonald (2009), by way of Mangiafico (2015), on the relationship between the ambient temperature and the rate of cricket chirps per minute. Data were collected for two species: O. exclamationis and O. niveus. The data are contained in a data frame called crickets with a total of 31 data points. 
+
+```{r}
+library(tidyverse)
+
+data(crickets, package = "modeldata")
+names(crickets)
+
+# Plot the temperature on the x-axis, the chirp rate on the y-axis. The plot
+# elements will be colored differently for each species:
+ggplot(crickets, 
+       aes(x = temp, y = rate, color = species, pch = species, lty = species)) + 
+  # Plot points for each data point and color by species
+  geom_point(size = 2) + 
+  # Show a simple linear model fit created separately for each species:
+  geom_smooth(method = lm, se = FALSE, alpha = 0.5) + 
+  scale_color_brewer(palette = "Paired") +
+  labs(x = "Temperature (C)", y = "Chirp Rate (per minute)")
+
+
+```
+
+The model formula rate ~ temp + species creates a model with different y-intercepts for each species.
+
+This is a shortcut to expand all interactions with these two variables:
+rate ~ (temp + species)^2
+
+Another shortcut to expand to include all interactions:
+rate ~ temp * species
+
+For data sets where there are many predictors, the period shortcut is available. The period represents main effects for all of the columns that are not on the left-hand side of the tilde. Using ~ (.)^3 would add main effects as well as all two- and three-variable interactions to the model.
+
+```{r}
+
+interaction_fit <- lm(rate ~ (temp + species)^2, data = crickets)
+
+interaction_fit
+
+#use the plot method to assess fit
+plot(interaction_fit)
+
+#decide if we need the interaction term
+main_effect_fit <- lm(rate ~ temp + species, data = crickets)
+
+anova(main_effect_fit, interaction_fit)
+#p-value indicates that we don't need this interaction term
+
+#get the summary
+summary(main_effect_fit)
+
+```
+
+The chirp rate for each species increases by 3.6 chirps as the temperature increases by a single degree. This term shows strong statistical significance as evidenced by the p-value. The species term has a value of -10.07. This indicates that, across all temperature values, O. niveus has a chirp rate that is about 10 fewer chirps per minute than O. exclamationis. Similar to the temperature term, the species effect is associated with a very small p-value.
+
+The negative intercept indicates that there are negative chirps at zero degrees, which makes no sense. The model is good *within the range* of the data.
+
+We can use the predict function to estimate new values.
+
+```{r}
+
+new_values <- data.frame(species = "O. exclamationis", temp = 15:20)
+predict(main_effect_fit, new_values)
+
+
+```
+
+Look at the broom::tidy() function.
+
+For example, suppose that predictors are being screened based on their correlation to the outcome column. Using purrr::map(), the results from cor.test() can be returned in a list for each predictor:
+
+```{r}
+corr_res <- map(mtcars %>% select(-mpg), cor.test, y = mtcars$mpg)
+
+# The first of ten results in the vector: 
+corr_res[[1]]
+
+#return a list with standardized names
+library(broom)
+
+tidy(corr_res[[1]])
+
+#that can be added to ggplot
+corr_res %>% 
+  # Convert each to a tidy format; `map_dfr()` stacks the data frames 
+  map_dfr(tidy, .id = "predictor") %>% 
+  ggplot(aes(x = fct_reorder(predictor, estimate))) + 
+  geom_point(aes(y = estimate)) + 
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = .1) +
+  labs(x = NULL, y = "Correlation with mpg")
+
+```
+
+Fit separate models for each cricket species.
+
+```{r}
+
+split_by_species <- 
+  crickets %>% 
+  group_nest(species) 
+split_by_species
+
+#the purr::map function can be used to create models for each species
+
+model_by_species <- 
+  split_by_species %>% 
+  mutate(model = map(data, ~ lm(rate ~ temp, data = .x)))
+model_by_species
+
+#collect the coefficients using broom::tidy
+model_by_species %>% 
+  mutate(coef = map(model, tidy)) %>% 
+  select(species, coef) %>% 
+  unnest(cols = c(coef))
+
+
+```
+
