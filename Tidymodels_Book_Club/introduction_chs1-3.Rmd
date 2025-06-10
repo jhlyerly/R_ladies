@@ -10,7 +10,15 @@ We are covering Tidy Modeling with R Version 1.0.0 (2023-09-06) - https://www.tm
 
 I am going to work through the book examples for the chapters as part of this project.
 
-This is Chapter 2 - Tidyverse Primer. 
+Chapter 1 - Software for Modeling
+
+Types of models
+Connections between types of models
+Review of terminology
+Iterative modeling process
+
+
+Chapter 2 - Tidyverse Primer 
 
 The data set comes from the city of Chicago’s data portal and contains daily ridership data for the city’s elevated train stations. The data set has columns for:
 

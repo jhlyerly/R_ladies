@@ -1,0 +1,60 @@
+---
+title: "modeling_chs4-9"
+author: "Jeanette Lyerly"
+date: '2025-06-06'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This is the next section of the tidymodels book club with R-Ladies RTP - June 2025. 
+We are covering Tidy Modeling with R Version 1.0.0 (2023-09-06) - https://www.tmwr.org.
+
+I am going to work through the book examples for the chapters as part of this project. This is the Modeling Basics section - chapters 4-9.
+
+These chapters use a transformed version of the Ames Housing data.
+
+```{r}
+
+library(tidyverse) 
+library(tidymodels)
+tidymodels_prefer()
+
+data(ames)
+
+
+```
+
+Exploratory data analysis.
+
+```{r}
+
+ggplot(ames, aes(x = Sale_Price)) + 
+  geom_histogram(bins = 50, col= "white")
+
+#data is right skewed
+#log transform
+
+ggplot(ames, aes(x = Sale_Price)) + 
+  geom_histogram(bins = 50, col= "white") +
+  scale_x_log10()
+
+```
+
+The units of the model coefficients might be more difficult to interpret, as will measures of performance. For example, the root mean squared error (RMSE) is a common performance metric used in regression models. It uses the difference between the observed and predicted values in its calculations. If the sale price is on the log scale, these differences (i.e., the residuals) are also on the log scale. It can be difficult to understand the quality of a model whose RMSE is 0.15 on such a log scale.
+
+Despite these drawbacks, the models used in this book use the log transformation for this outcome. From this point on, the outcome column is prelogged in the ames data frame:
+
+```{r}
+ames <- ames %>% mutate(Sale_Price = log10(Sale_Price))
+
+
+```
+
+Looking at the neighborhood graphics in the book - some of these neighborhoods are touching, some are isolated, some are inside each other.
+
+This data set will be carried forward in the rest of the book.
+
+
